@@ -81,7 +81,7 @@ category_counts.columns = [category, 'Jumlah']
 
 # Fitur Urutkan Data
 st.sidebar.subheader("Urutkan Data Tabel")
-sort_column = st.sidebar.selectbox("Pilih kolom untuk diurutkan:", ["No", "NAMA SISWA", category])
+sort_column = st.sidebar.selectbox("Pilih kolom untuk diurutkan:", ["NAMA SISWA"])
 sort_order = st.sidebar.radio("Pilih urutan:", ("Ascending", "Descending"))
 
 # Urutkan data berdasarkan pilihan
