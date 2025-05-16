@@ -120,7 +120,26 @@ fig_bar.update_layout(
 )
 st.plotly_chart(fig_bar, use_container_width=True)
 
-# Tampilkan Data Table
+# Hapus kolom tanpa nama atau None
+sorted_data = sorted_data.dropna(axis=1, how='all')  # Menghapus kolom yang seluruhnya berisi NaN
+sorted_data = sorted_data.loc[:, ~sorted_data.columns.str.match('^Unnamed.*|^None$')]
+
+# Daftar kolom yang ingin ditampilkan
+columns_to_display = ['No', 'NAMA SISWA', 'KELAS', 'DESA', 'KECAMATAN', 'KABUPATEN', 'PROVINSI']
+
+# Filter hanya kolom yang ada di data
+existing_columns = [col for col in columns_to_display if col in sorted_data.columns]
+if not existing_columns:
+    st.warning("Tidak ada kolom yang sesuai untuk ditampilkan.")
+    st.stop()
+
+# Filter data hanya dengan kolom-kolom yang diinginkan
+sorted_data = sorted_data[existing_columns]
+
+# Hapus kolom pertama yang berisi 'Unnamed' atau 'None'
+sorted_data = sorted_data.loc[:, ~sorted_data.columns.str.match('^Unnamed.*|^None$')]
+
+# Tampilkan Data Table dengan lebar penuh
 st.subheader(f"Tabel Data Siswa - {category}")
-sorted_data = sorted_data[['No', 'NAMA SISWA', 'KELAS', 'DESA', 'KECAMATAN', 'KABUPATEN', 'PROVINSI']]
-st.dataframe(sorted_data)
+st.dataframe(sorted_data, use_container_width=True)
+
