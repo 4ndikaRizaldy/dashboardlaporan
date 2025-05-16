@@ -1,9 +1,6 @@
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from io import BytesIO
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
 
 # Konfigurasi Streamlit
 st.set_page_config(page_title="Dashboard Data SMK", layout="wide")
@@ -42,6 +39,9 @@ if missing_columns:
     st.error(f"Kolom berikut tidak ditemukan dalam file: {', '.join(missing_columns)}")
     st.stop()
 
+# Ganti seluruh baris yang berisi NaN dengan "Lainnya"
+data = data.fillna("Lainnya")
+
 # Tambahkan kolom 'No' sebagai nomor urut
 data = data.reset_index(drop=True)
 data['No'] = range(1, len(data) + 1)
@@ -69,6 +69,11 @@ selected_class = st.sidebar.multiselect("Filter berdasarkan Kelas:", filtered_da
 # Filter terakhir berdasarkan kelas
 if selected_class:
     filtered_data = filtered_data[filtered_data['KELAS'].isin(selected_class)]
+
+# Cek jika data hasil filter kosong
+if filtered_data.empty:
+    st.warning("Tidak ada data yang sesuai dengan filter yang diterapkan.")
+    st.stop()
 
 # Hitung jumlah per kategori
 category_counts = filtered_data[category].value_counts().reset_index()
@@ -133,43 +138,3 @@ st.plotly_chart(fig_pie, use_container_width=True)
 st.subheader(f"Tabel Data Siswa - {category}")
 sorted_data = sorted_data[['No', 'NAMA SISWA', 'KELAS', 'DESA', 'KECAMATAN', 'KABUPATEN', 'PROVINSI']]
 st.dataframe(sorted_data)
-
-# Fungsi untuk membuat PDF
-def generate_pdf(data):
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-
-    # Judul PDF
-    c.setFont("Helvetica-Bold", 14)
-    c.drawCentredString(width / 2, height - 50, "Dashboard Data SMK")
-    
-    # Ringkasan
-    c.setFont("Helvetica", 12)
-    c.drawString(50, height - 100, f"Jumlah Siswa Total: {total_siswa}")
-    c.drawString(50, height - 120, f"Jumlah {category} yang Terdaftar: {total_kategori}")
-    c.drawString(50, height - 140, f"Kategori {category} Terbesar: {kategori_terbesar}")
-
-    # Data Tabel
-    start_y = height - 180
-    for i, row in data.iterrows():
-        text = f"{row['No']} - {row['NAMA SISWA']} - {row['KELAS']} - {row['DESA']} - {row['KECAMATAN']} - {row['KABUPATEN']} - {row['PROVINSI']}"
-        c.drawString(50, start_y, text)
-        start_y -= 20
-        if start_y < 50:
-            c.showPage()
-            start_y = height - 50
-
-    c.save()
-    buffer.seek(0)
-    return buffer
-
-# Tombol Download PDF
-if st.button("Download PDF"):
-    pdf_buffer = generate_pdf(sorted_data)
-    st.download_button(
-        label="Unduh PDF",
-        data=pdf_buffer,
-        file_name="Dashboard_Data_SMK.pdf",
-        mime="application/pdf"
-    )
