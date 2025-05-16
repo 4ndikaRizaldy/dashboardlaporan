@@ -6,7 +6,7 @@ import streamlit as st
 st.set_page_config(page_title="Dashboard Data SMK", layout="wide")
 
 # Daftar kategori
-kategori_options = ['KELAS', 'DUSUN', 'DESA', 'KECAMATAN', 'KABUPATEN', 'PROVINSI']
+kategori_options = ['KELAS', 'DESA', 'KECAMATAN', 'KABUPATEN', 'PROVINSI']
 
 # Sidebar untuk unggah file Excel
 st.sidebar.title("Filter Data")
@@ -119,20 +119,6 @@ fig_bar.update_layout(
     xaxis_tickangle=-45
 )
 st.plotly_chart(fig_bar, use_container_width=True)
-
-# Grafik Pie
-st.subheader(f"Distribusi Siswa per {category}")
-fig_pie = px.pie(
-    category_counts,
-    names=category,
-    values='Jumlah',
-    color_discrete_sequence=px.colors.qualitative.Pastel,
-    hole=0.4,
-    title=f"Distribusi Siswa per {category}",
-    hover_data={'Jumlah': True}
-)
-fig_pie.update_traces(textinfo='percent+label')
-st.plotly_chart(fig_pie, use_container_width=True)
 
 # Tampilkan Data Table
 st.subheader(f"Tabel Data Siswa - {category}")
