@@ -15,7 +15,6 @@ uploaded_file = st.sidebar.file_uploader("Unggah File Excel", type=["xlsx"])
 # Fungsi untuk memuat data dari file Excel
 def load_data_from_file(file):
     try:
-        # Baca seluruh sheet, pilih sheet pertama
         xls = pd.ExcelFile(file)
         sheet_name = xls.sheet_names[0]
         data = pd.read_excel(xls, sheet_name=sheet_name)
@@ -42,31 +41,30 @@ if missing_columns:
 # Ganti seluruh baris yang berisi NaN dengan "Lainnya"
 data = data.fillna("Lainnya")
 
-# Tambahkan kolom 'No' sebagai nomor urut
-data = data.reset_index(drop=True)
-data['No'] = range(1, len(data) + 1)
+# Hapus kolom 'Unnamed' atau 'None'
+data = data.loc[:, ~data.columns.str.match('^Unnamed.*|^None$')]
 
 # Sidebar untuk memilih kategori analisis
 category = st.sidebar.selectbox("Pilih kategori untuk analisis:", kategori_options)
 selected_province = st.sidebar.multiselect("Filter berdasarkan Provinsi:", data['PROVINSI'].unique())
 
-# Menampilkan Kabupaten berdasarkan Provinsi
+# Filter berdasarkan provinsi
 filtered_data = data[data['PROVINSI'].isin(selected_province)] if selected_province else data
 selected_kabupaten = st.sidebar.multiselect("Filter berdasarkan Kabupaten:", filtered_data['KABUPATEN'].unique())
 
-# Menampilkan Kecamatan berdasarkan Kabupaten
+# Filter berdasarkan kabupaten
 filtered_data = filtered_data[filtered_data['KABUPATEN'].isin(selected_kabupaten)] if selected_kabupaten else filtered_data
 selected_kecamatan = st.sidebar.multiselect("Filter berdasarkan Kecamatan:", filtered_data['KECAMATAN'].unique())
 
-# Menampilkan Desa berdasarkan Kecamatan
+# Filter berdasarkan kecamatan
 filtered_data = filtered_data[filtered_data['KECAMATAN'].isin(selected_kecamatan)] if selected_kecamatan else filtered_data
 selected_desa = st.sidebar.multiselect("Filter berdasarkan Desa:", filtered_data['DESA'].unique())
 
-# Menampilkan Kelas berdasarkan Desa
+# Filter berdasarkan desa
 filtered_data = filtered_data[filtered_data['DESA'].isin(selected_desa)] if selected_desa else filtered_data
 selected_class = st.sidebar.multiselect("Filter berdasarkan Kelas:", filtered_data['KELAS'].unique())
 
-# Filter terakhir berdasarkan kelas
+# Filter berdasarkan kelas
 if selected_class:
     filtered_data = filtered_data[filtered_data['KELAS'].isin(selected_class)]
 
@@ -75,71 +73,100 @@ if filtered_data.empty:
     st.warning("Tidak ada data yang sesuai dengan filter yang diterapkan.")
     st.stop()
 
-# Hitung jumlah per kategori
-category_counts = filtered_data[category].value_counts().reset_index()
-category_counts.columns = [category, 'Jumlah']
+# Urutkan data berdasarkan 'NAMA SISWA' secara lowercase
+sorted_data = filtered_data.sort_values(
+    by="NAMA SISWA", 
+    key=lambda col: col.str.lower()
+).reset_index(drop=True)
 
-# Fitur Urutkan Data
-st.sidebar.subheader("Urutkan Data Tabel")
-sort_column = st.sidebar.selectbox("Pilih kolom untuk diurutkan:", ["NAMA SISWA"])
-sort_order = st.sidebar.radio("Pilih urutan:", ("Ascending", "Descending"))
-
-# Urutkan data berdasarkan pilihan
-sorted_data = filtered_data.sort_values(by=sort_column, ascending=(sort_order == "Ascending"))
-
-# Tambahkan kolom nomor urut
-sorted_data = sorted_data.reset_index(drop=True)
+# Tambahkan kolom 'No' setelah sorting
 sorted_data['No'] = range(1, len(sorted_data) + 1)
-
-# Ringkasan Data
-total_siswa = len(sorted_data)
-total_kategori = category_counts[category].nunique()
-kategori_terbesar = category_counts.iloc[0][category] if not category_counts.empty else "Tidak ada data"
-
-# Judul dan ringkasan data
-st.title("Dashboard Data SMK")
-st.write(f"**Jumlah Siswa Total:** {total_siswa}")
-st.write(f"**Jumlah {category} yang Terdaftar:** {total_kategori}")
-st.write(f"**Kategori {category} Terbesar:** {kategori_terbesar}")
-
-# Grafik Bar
-st.subheader(f"Jumlah Siswa per {category}")
-fig_bar = px.bar(
-    category_counts,
-    x=category,
-    y='Jumlah',
-    color=category,
-    color_discrete_sequence=px.colors.qualitative.Pastel,
-    title=f"Jumlah Siswa per {category}",
-    text='Jumlah'
-)
-fig_bar.update_layout(
-    xaxis_title=f"{category}",
-    yaxis_title="Jumlah Siswa",
-    xaxis_tickangle=-45
-)
-st.plotly_chart(fig_bar, use_container_width=True)
-
-# Hapus kolom tanpa nama atau None
-sorted_data = sorted_data.dropna(axis=1, how='all')  # Menghapus kolom yang seluruhnya berisi NaN
-sorted_data = sorted_data.loc[:, ~sorted_data.columns.str.match('^Unnamed.*|^None$')]
 
 # Daftar kolom yang ingin ditampilkan
 columns_to_display = ['No', 'NAMA SISWA', 'KELAS', 'DESA', 'KECAMATAN', 'KABUPATEN', 'PROVINSI']
-
-# Filter hanya kolom yang ada di data
 existing_columns = [col for col in columns_to_display if col in sorted_data.columns]
-if not existing_columns:
-    st.warning("Tidak ada kolom yang sesuai untuk ditampilkan.")
-    st.stop()
 
-# Filter data hanya dengan kolom-kolom yang diinginkan
-sorted_data = sorted_data[existing_columns]
+# Fungsi untuk membuat grafik bar (horizontal untuk KABUPATEN dan PROVINSI)
+def create_bar_chart(data, column_name, color_column=None):
+    # Jika ada color_column, maka tampilkan berdasarkan kedua kolom
+    if color_column:
+        counts = data.groupby([column_name, color_column]).size().reset_index(name='Jumlah')
+        # Urutkan data dari jumlah terbesar ke terkecil
+        counts = counts.sort_values('Jumlah', ascending=False)
+        
+        fig = px.bar(
+            counts,
+            y=column_name,
+            x='Jumlah',
+            color=color_column,
+            orientation='h',
+            color_discrete_sequence=px.colors.qualitative.Pastel,
+            text='Jumlah',
+            title=f"Persebaran Data Berdasarkan {column_name} dan {color_column}"
+        )
+    else:
+        # Jika hanya 1 kolom, tampilkan grafik sederhana
+        counts = data[column_name].value_counts().reset_index()
+        counts.columns = [column_name, 'Jumlah']
+        # Urutkan data dari jumlah terbesar ke terkecil
+        counts = counts.sort_values('Jumlah', ascending=False)
 
-# Hapus kolom pertama yang berisi 'Unnamed' atau 'None'
-sorted_data = sorted_data.loc[:, ~sorted_data.columns.str.match('^Unnamed.*|^None$')]
+        fig = px.bar(
+            counts,
+            y=column_name,
+            x='Jumlah',
+            color=column_name,
+            orientation='h',
+            color_discrete_sequence=px.colors.qualitative.Pastel,
+            text='Jumlah',
+            title=f"Persebaran Data Berdasarkan {column_name}"
+        )
 
-# Tampilkan Data Table dengan lebar penuh
-st.subheader(f"Tabel Data Siswa - {category}")
-st.dataframe(sorted_data, use_container_width=True)
+    # Atur posisi teks agar terlihat
+    fig.update_traces(textposition='outside', textfont_size=12)
+
+    # Update layout
+    fig.update_layout(
+        xaxis_title="Jumlah",
+        yaxis_title=column_name,
+        xaxis_tickangle=0,
+        yaxis=dict(showticklabels=True)
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+# Tampilkan grafik untuk PROVINSI
+st.subheader("Grafik Persebaran Data Berdasarkan Provinsi")
+create_bar_chart(sorted_data, "PROVINSI")
+
+# Tampilkan grafik untuk KABUPATEN dan PROVINSI
+st.subheader("Grafik Persebaran Data Berdasarkan Kabupaten")
+create_bar_chart(sorted_data, "KABUPATEN")
+
+
+
+
+# Tambahkan Treemap
+st.subheader("Treemap Persebaran Data Berdasarkan Provinsi, Kabupaten, Kecamatan, dan Desa")
+if all(col in sorted_data.columns for col in ['PROVINSI', 'KABUPATEN', 'KECAMATAN', 'DESA']):
+    treemap_data = sorted_data.groupby(['PROVINSI', 'KABUPATEN', 'KECAMATAN', 'DESA']).size().reset_index(name='Jumlah')
+
+    fig_treemap = px.treemap(
+        treemap_data, 
+        path=['PROVINSI', 'KABUPATEN', 'KECAMATAN', 'DESA'], 
+        values='Jumlah', 
+        color='Jumlah', 
+        color_continuous_scale='Viridis',
+        title="Treemap Persebaran Siswa Berdasarkan Provinsi, Kabupaten, Kecamatan, dan Desa",
+        hover_data={'Jumlah': True}
+    )
+
+    # Tambahkan keterangan jumlah langsung
+    fig_treemap.update_traces(
+        texttemplate='%{label}<br>Jumlah: %{value}',
+        textposition='middle center'
+    )
+
+    st.plotly_chart(fig_treemap, use_container_width=True)
 
