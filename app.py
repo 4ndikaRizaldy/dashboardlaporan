@@ -44,6 +44,7 @@ data = data.fillna("Lainnya")
 # Hapus kolom 'Unnamed' atau 'None'
 data = data.loc[:, ~data.columns.str.match('^Unnamed.*|^None$')]
 
+
 # Sidebar untuk memilih kategori analisis
 category = st.sidebar.selectbox("Pilih kategori untuk analisis:", kategori_options)
 selected_province = st.sidebar.multiselect("Filter berdasarkan Provinsi:", data['PROVINSI'].unique())
@@ -85,6 +86,23 @@ sorted_data['No'] = range(1, len(sorted_data) + 1)
 # Daftar kolom yang ingin ditampilkan
 columns_to_display = ['No', 'NAMA SISWA', 'KELAS', 'DESA', 'KECAMATAN', 'KABUPATEN', 'PROVINSI']
 existing_columns = [col for col in columns_to_display if col in sorted_data.columns]
+
+# Tampilkan tabel data dengan fitur pencarian nama
+st.subheader("Data Siswa")
+
+# Input pencarian nama siswa
+search_name = st.text_input("Cari Nama Siswa (berdasarkan kandungan nama):")
+
+# Jika ada input pencarian, filter data berdasarkan nama
+if search_name:
+    # Pencarian berdasarkan kandungan nama (substring search)
+    filtered_table_data = sorted_data[sorted_data['NAMA SISWA'].str.contains(search_name, case=False, na=False)]
+else:
+    filtered_table_data = sorted_data
+
+# Tampilkan data dalam tabel
+st.dataframe(filtered_table_data[existing_columns])
+
 
 # Fungsi untuk membuat grafik bar (horizontal untuk KABUPATEN dan PROVINSI)
 def create_bar_chart(data, column_name, color_column=None):
